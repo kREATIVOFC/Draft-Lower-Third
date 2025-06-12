@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Lower Third Schema</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      overflow: hidden;
+      height: 100vh;
+      font-family: Arial, sans-serif;
+    }
+
+    .wrapper {
+      position: absolute;
+      bottom: 50px;
+      left: 0;
+      width: 100%;
+      height: 110px;
+      display: flex;
+      align-items: center;
+    }
+
+    .sec1 { width: 390px; height: 110px; background: #ff7a52; display: flex; justify-content: center; align-items: center; }
+    .sec1 img { max-height: 80px; }
+
+    .sec2 { flex: 1; height: 110px; background: #803d29; display: flex; align-items: center; padding: 0 20px; gap: 20px; }
+    .sec2 .person-img { height: 80px; width: 80px; object-fit: cover; border-radius: 5px; }
+    .sec2 .person-text { color: white; display: flex; flex-direction: column; gap: 6px; }
+
+    .sec3 { width: calc(100% - 390px - 5px); height: 110px; background: #803d29; position: relative; overflow: hidden; }
+    .ticker { position: absolute; top: 0; animation: scroll 48s infinite; }
+    .ticker-item { height: 110px; display: flex; align-items: center; justify-content: center; font-size: 18px; color: white; }
+
+    @keyframes scroll {
+      0% { transform: translateY(0%); }
+      12.499% { transform: translateY(0%); }
+      16.666% { transform: translateY(-100%); }
+      29.166% { transform: translateY(-100%); }
+      33.333% { transform: translateY(-200%); }
+      45.833% { transform: translateY(-200%); }
+      50% { transform: translateY(-300%); }
+      62.5% { transform: translateY(-300%); }
+      66.666% { transform: translateY(-400%); }
+      79.166% { transform: translateY(-400%); }
+      83.333% { transform: translateY(-500%); }
+      95.833% { transform: translateY(-500%); }
+      100% { transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+<div class="wrapper">
+  <div class="sec1"><img id="logo1" src="" alt="Logo"></div>
+  <div class="sec2">
+    <img id="personImg" class="person-img" src="" alt="Person">
+    <div class="person-text">
+      <div id="nameLine">Name Line</div>
+      <div id="timerLine">Pick 0 – ⏱️ 05:00</div>
+      <div id="roundLine">Round 1</div>
+    </div>
+  </div>
+  <div class="sec3">
+    <div class="ticker" id="ticker"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script>
+  const SHEET_ID = '1niFCUtwdUAuy5yb65oXfPv50w-UPoqMYj_QRhsV-jeA';
+  const BASE_CSV = sheet => `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${sheet}`;
+
+  let brData = [], imgData = [];
+
+  function fetchCSV(sheet, cb) {
+    Papa.parse(BASE_CSV(sheet), { download: true, header: true, complete: r => cb(r.data) });
+  }
+
+  function startTimer(secs) {
+    const el = document.getElementById('timerLine');
+    let remaining = secs;
+    const iv = setInterval(() => {
+      if (remaining <= 0) { el.textContent = 'Låst'; clearInterval(iv); }
+      else {
+        const m = Math.floor(remaining/60), s = String(remaining%60).padStart(2,'0');
+        el.textContent = `Pick – ${m}:${s}`;
+        remaining--;
+      }
+    }, 1000);
+  }
+
+  function init() {
+    fetchCSV('BracketData', data => {
+      brData = data;
+      fetchCSV('BildTabell', data2 => {
+        imgData = data2;
+        render();
+      });
+    });
+  }
+
+  function render() {
+    const sec3 = document.getElementById('ticker');
+    sec3.innerHTML = ''; // clear
+
+    const relevant = brData.filter(r => r['Active?']=='✔️');
+    // section 2 and 1: first with Active?
+    const active = relevant[0] || {};
+
+    const imgRec = imgData.find(r => r.Namn === active.Name) || {};
+    document.getElementById('logo1').src = imgRec.Logotyplänk || '';
+    document.getElementById('personImg').src = imgRec.Bildlänk || '';
+    document.getElementById('nameLine').textContent = active.Name || '';
+    if (active['Pick number'] && active['Pick Locked?']!=='✔️') {
+      startTimer(300);
+    } else if (active['Pick Locked?']==='✔️') {
+      document.getElementById('timerLine').textContent = 'Låst';
+    }
+    document.getElementById('roundLine').textContent = active.Round || '';
+
+    // section3 ticker: pick number + name
+    const items = relevant.map(r => `${r['Pick number']} - ${r.Name}`);
+    items.forEach(text => {
+      const div = document.createElement('div');
+      div.className = 'ticker-item';
+      div.textContent = text;
+      sec3.appendChild(div);
+    });
+    // loop copy to allow smooth loop
+    items.forEach(text => {
+      const div = document.createElement('div');
+      div.className = 'ticker-item';
+      div.textContent = text;
+      sec3.appendChild(div);
+    });
+  }
+
+  init();
+  setInterval(init, 60000); // reload each minute
+</script>
+</body>
+</html>
