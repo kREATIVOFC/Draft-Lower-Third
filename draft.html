@@ -47,7 +47,7 @@
   let draft = [], imgTab = [];
 
   function fetchCSV(sheet, cb) {
-    Papa.parse(CSV(sheet), { download:true, header:true, complete:r => cb(r.data) });
+    Papa.parse(CSV(sheet), { download: true, header: true, complete: r => cb(r.data) });
   }
 
   function startTimer(secs) {
@@ -55,9 +55,11 @@
     let rem = secs;
     clearInterval(window._pickTimer);
     window._pickTimer = setInterval(() => {
-      if (rem <= 0) { line.textContent = 'Låst'; clearInterval(window._pickTimer); }
-      else { 
-        const m = Math.floor(rem/60), s = String(rem%60).padStart(2,'0');
+      if (rem <= 0) {
+        line.textContent = 'Låst';
+        clearInterval(window._pickTimer);
+      } else {
+        const m = Math.floor(rem / 60), s = String(rem % 60).padStart(2, '0');
         line.textContent = `Pick – ${m}:${s}`;
         rem--;
       }
@@ -65,34 +67,53 @@
   }
 
   function render() {
-    const active = draft.find(r => r['Active?']=='✔️') || {};
-    const imgRec = imgTab.find(r => r.Namn===active.Name) || {};
+    const active = draft.find(r => r['Active?'] === '✔️') || {};
+    const name = active['Name'] || '';
+    const pickNumber = active['Pick number'] || '';
+    const round = active['Round'] || '';
+    const isLocked = active['Pick Locked?'] === '✔️';
+
+    const imgRec = imgTab.find(r => r.Namn === name) || {};
+
     document.getElementById('logo1').src = imgRec.Logotyplänk || '';
     document.getElementById('personImg').src = imgRec.Bildlänk || '';
-    document.getElementById('nameLine').textContent = active.Name || '';
-    if (active['Pick number']) {
-      if (active['Pick Locked?']=='✔️') {
+    document.getElementById('nameLine').textContent = name;
+    document.getElementById('roundLine').textContent = round;
+
+    if (pickNumber) {
+      if (isLocked) {
         document.getElementById('timerLine').textContent = 'Låst';
-      } else startTimer(300);
+      } else {
+        startTimer(300);
+      }
     }
-    document.getElementById('roundLine').textContent = active.Round || '';
 
     const tick = document.getElementById('ticker');
     tick.innerHTML = '';
-    const items = draft.filter(r=>r['Active?']=='✔️').map(r=>`${r['Pick number']} - ${r.Name}`);
+    const items = draft
+      .filter(r => r['Active?'] === '✔️')
+      .map(r => `${r['Pick number']} - ${r.Name}`);
+
     items.concat(items).forEach(txt => {
       const d = document.createElement('div');
-      d.className='ticker-item'; d.textContent=txt;
+      d.className = 'ticker-item';
+      d.textContent = txt;
       tick.appendChild(d);
     });
   }
 
   function init() {
-    fetchCSV('Draft', d=>{ draft=d; fetchCSV('BildTabell', b=>{ imgTab=b; render(); }); });
+    fetchCSV('Draft', d => {
+      draft = d;
+      fetchCSV('BildTabell', b => {
+        imgTab = b;
+        render();
+      });
+    });
   }
 
   init();
-  setInterval(init, 60000);
+  setInterval(init, 60000); // Uppdatera varje minut
 </script>
 </body>
 </html>
