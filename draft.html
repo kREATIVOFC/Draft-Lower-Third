@@ -1,32 +1,136 @@
 <!DOCTYPE html>
 <html lang="sv">
 <head>
-  <meta charset="UTF-8"/>
+  <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Lower Third Schema</title>
+  <title>Lower Third</title>
+  <link rel="stylesheet" href="https://use.typekit.net/wdy7keh.css">
   <style>
-    body { margin:0; padding:0; background:transparent; overflow:hidden; height:100vh; font-family:Arial,sans-serif; }
-    .wrapper { position:absolute; bottom:50px; left:0; width:100%; height:110px; display:flex; }
-    .sec1 { width:390px; background:#ff7a52; display:flex; justify-content:center; align-items:center; }
-    .sec1 img { max-height:80px; }
-    .sec2 { flex:1; background:#803d29; display:flex; align-items:center; padding:0 20px; gap:20px; }
-    .sec2 img { height:80px; width:80px; object-fit:cover; border-radius:5px; }
-    .sec2 .person-text { display:flex; flex-direction:column; gap:6px; color:white; }
-    .sec3 { width:calc(100% - 395px); background:#803d29; position:relative; overflow:hidden; }
-    .ticker { position:absolute; top:0; animation:scroll 48s infinite; }
-    .ticker-item { height:110px; display:flex; align-items:center; justify-content:center; font-size:18px; color:white; }
-    @keyframes scroll {
-      0% {transform:translateY(0%);} 12.5% {transform:translateY(0%);}
-      16.66% {transform:translateY(-100%);} 29.16% {transform:translateY(-100%);}
-      33.33% {transform:translateY(-200%);} 45.83% {transform:translateY(-200%);}
-      50% {transform:translateY(-300%);} 62.5% {transform:translateY(-300%);}
-      66.66% {transform:translateY(-400%);} 79.16% {transform:translateY(-400%);}
-      83.33% {transform:translateY(-500%);} 95.83% {transform:translateY(-500%);}
-      100% {transform:translateY(0);}
+    body {
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+      text-transform: uppercase;
+    }
+
+    .wrapper {
+      position: absolute;
+      bottom: 0px;
+      left: 0;
+      width: 100%;
+      height: 110px;
+      display: flex;
+    }
+
+    .sec1 {
+      width: 390px;
+      background: #ff7a52;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .sec1 img {
+      max-height: 60px;
+      max-width: 100%;
+      object-fit: contain;
+    }
+
+    .sec2 {
+      flex: 1;
+      background: #803d29;
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 20px;
+    }
+
+    .sec2 img {
+      height: 200px;
+      width: 200px;
+      object-fit: cover;
+      border-radius: 5px;
+      align-self: flex-end;
+    }
+
+    .person-text {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      color: white;
+      gap: 4px;
+      line-height: 1.2;
+    }
+
+    #nameLine {
+      font-family: "zuume-edge", sans-serif;
+      font-weight: 700;
+      font-size: 26px;
+    }
+
+    #timerLine {
+      font-family: "bc-sklonar", sans-serif;
+      font-weight: 700;
+      font-style: normal;
+    }
+
+    #roundLine {
+      font-family: "bc-sklonar", sans-serif;
+      font-weight: 500;
+      font-style: normal;
+    }
+
+    .separator {
+      width: 5px;
+      height: 110px;      /* Samma höjd som wrapper */
+      background-color: #ff7a52;
+    }
+    .sec3 {
+      width: 1100px;
+      background: #803d29;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      position: relative;
+    }
+
+    .player-name {
+      background-color: rgba(68, 68, 68, 0.74); /* Transparant orange */
+      padding: 0 6px;
+      border-radius: 2px;
+    }
+
+    .ticker-track {
+      display: flex;
+      gap: 100px;
+      white-space: nowrap;
+      animation: scrollLeft 60s linear infinite;
+    }
+
+    .ticker-item {  
+      color: white;
+      font-size: 18px;
+      padding: 6px 12px;
+      font-family: "bc-sklonar", sans-serif;
+      font-weight: 700;
+      font-style: normal;
+    }
+
+    .ticker-item.active {
+      background: #ff7a52;
+      border-radius: 4px;
+    }
+
+    @keyframes scrollLeft {
+      0%   { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
     }
   </style>
 </head>
 <body>
+
 <div class="wrapper">
   <div class="sec1"><img id="logo1" src="" alt="Logo"></div>
   <div class="sec2">
@@ -37,70 +141,109 @@
       <div id="roundLine"></div>
     </div>
   </div>
-  <div class="sec3"><div class="ticker" id="ticker"></div></div>
+  <div class="separator"></div>  <!-- Separator -->
+  <div class="sec3">
+    <div class="ticker-track" id="ticker"></div>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <script>
   const SHEET_ID = '1niFCUtwdUAuy5yb65oXfPv50w-UPoqMYj_QRhsV-jeA';
   const CSV = sheet => `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheet)}`;
-  let draft = [], imgTab = [];
+  let draft = [], imgTab = [], activePickNum = 0, timerStartedAt = null;
 
   function fetchCSV(sheet, cb) {
-    Papa.parse(CSV(sheet), { download: true, header: true, complete: r => cb(r.data) });
+    Papa.parse(CSV(sheet), {
+      download: true,
+      header: true,
+      skipEmptyLines: true,
+      complete: r => cb(r.data)
+    });
   }
 
-  function startTimer(secs) {
-    const line = document.getElementById('timerLine');
-    let rem = secs;
-    clearInterval(window._pickTimer);
-    window._pickTimer = setInterval(() => {
+  function startTimer() {
+    const el = document.getElementById('timerLine');
+    clearInterval(window._timer);
+    let duration = 300;
+
+    if (!timerStartedAt) {
+      timerStartedAt = Date.now();
+    }
+
+    window._timer = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - timerStartedAt) / 1000);
+      const rem = duration - elapsed;
       if (rem <= 0) {
-        line.textContent = 'Låst';
-        clearInterval(window._pickTimer);
+        el.textContent = `Pick ${activePickNum} – Låst`;
+        clearInterval(window._timer);
       } else {
         const m = Math.floor(rem / 60), s = String(rem % 60).padStart(2, '0');
-        line.textContent = `Pick – ${m}:${s}`;
-        rem--;
+        el.textContent = `Pick ${activePickNum} – ${m}:${s}`;
       }
     }, 1000);
   }
 
   function render() {
-    const active = draft.find(r => r['Active?'] === '✔️') || {};
-    const name = active['Name'] || '';
-    const pickNumber = active['Pick number'] || '';
-    const round = active['Round'] || '';
-    const isLocked = active['Pick Locked?'] === '✔️';
+    const active = draft.find(r => r['Active?'] === 'TRUE');
+    if (!active) return;
 
-    const imgRec = imgTab.find(r => r.Namn === name) || {};
+    activePickNum = Number(active['Pick number']) || 0;
+    const activeName = active?.Name || '';
+    const round = active?.Round || '';
 
-    document.getElementById('logo1').src = imgRec.Logotyplänk || '';
-    document.getElementById('personImg').src = imgRec.Bildlänk || '';
-    document.getElementById('nameLine').textContent = name;
+    const imgRec = imgTab.find(r => r.Namn?.trim().toLowerCase() === activeName.trim().toLowerCase()) || {};
+
+    document.getElementById('logo1').src = imgRec['Logotyplänk'] || 'https://raw.githubusercontent.com/kREATIVOFC/Draft-Lower-Third/main/Assets/ND-on-Orange.png';
+    document.getElementById('personImg').src = imgRec['Bildlänk'] || '';
+    document.getElementById('nameLine').textContent = activeName;
     document.getElementById('roundLine').textContent = round;
 
-    if (pickNumber) {
-      if (isLocked) {
-        document.getElementById('timerLine').textContent = 'Låst';
-      } else {
-        startTimer(300);
-      }
+    if (active['Pick Locked?'] === 'TRUE') {
+      clearInterval(window._timer);
+      document.getElementById('timerLine').textContent = `Pick ${activePickNum} – Låst`;
+    } else {
+      timerStartedAt = Date.now();
+      startTimer();
     }
 
+    buildTicker(activePickNum, activeName);
+  }
+
+  function buildTicker(activePickNumber, activeTeamName) {
     const tick = document.getElementById('ticker');
     tick.innerHTML = '';
-    const items = draft
-      .filter(r => r['Active?'] === '✔️')
-      .map(r => `${r['Pick number']} - ${r.Name}`);
 
-    items.concat(items).forEach(txt => {
-      const d = document.createElement('div');
-      d.className = 'ticker-item';
-      d.textContent = txt;
-      tick.appendChild(d);
+    const pickNumInt = parseInt(activePickNumber, 10);
+
+    const items = draft.map((r) => {
+      const pickNum = parseInt(r['Pick number'], 10);
+      const teamName = r['Name'] || '';
+      const pickedPlayer = r['Pickad Spelare'] || '';
+      const locked = (r['Pick Locked?'] || '').toString().toLowerCase() === 'true';
+
+      let label = `${pickNum} – ${teamName}`;
+
+      if (pickNum < pickNumInt && locked && pickedPlayer) {
+        label += ` pick <span class="player-name">${pickedPlayer}</span>`;
+      }
+
+      const isActive = pickNum === pickNumInt && teamName === activeTeamName;
+
+      return { label, isActive };
+    });
+
+    const looped = [...items, ...items];
+
+    looped.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'ticker-item' + (item.isActive ? ' active' : '');
+      div.innerHTML = item.label;  // Viktigt: använd innerHTML för att span ska fungera
+      tick.appendChild(div);
     });
   }
+
+
 
   function init() {
     fetchCSV('Draft', d => {
@@ -113,7 +256,8 @@
   }
 
   init();
-  setInterval(init, 60000); // Uppdatera varje minut
+  setInterval(init, 15000); // uppdatering från Google Sheets var 60:e sekund
 </script>
+
 </body>
 </html>
