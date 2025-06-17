@@ -84,9 +84,10 @@
 
     .separator {
       width: 5px;
-      height: 110px;      /* Samma höjd som wrapper */
+      height: 110px;
       background-color: #ff7a52;
     }
+
     .sec3 {
       width: 1100px;
       background: #803d29;
@@ -97,7 +98,7 @@
     }
 
     .player-name {
-      background-color: rgba(68, 68, 68, 0.74); /* Transparant orange */
+      background-color: rgba(68, 68, 68, 0.74);
       padding: 0 6px;
       border-radius: 2px;
     }
@@ -109,7 +110,7 @@
       animation: scrollLeft 60s linear infinite;
     }
 
-    .ticker-item {  
+    .ticker-item {
       color: white;
       font-size: 18px;
       padding: 6px 12px;
@@ -141,7 +142,7 @@
       <div id="roundLine"></div>
     </div>
   </div>
-  <div class="separator"></div>  <!-- Separator -->
+  <div class="separator"></div>
   <div class="sec3">
     <div class="ticker-track" id="ticker"></div>
   </div>
@@ -151,7 +152,11 @@
 <script>
   const SHEET_ID = '1niFCUtwdUAuy5yb65oXfPv50w-UPoqMYj_QRhsV-jeA';
   const CSV = sheet => `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheet)}`;
-  let draft = [], imgTab = [], activePickNum = 0, timerStartedAt = null;
+
+  let draft = [], imgTab = [];
+  let activePickNum = 0;
+  let timerStartedAt = null;
+  let lastPickNumber = null;
 
   function fetchCSV(sheet, cb) {
     Papa.parse(CSV(sheet), {
@@ -165,11 +170,7 @@
   function startTimer() {
     const el = document.getElementById('timerLine');
     clearInterval(window._timer);
-    let duration = 300;
-
-    if (!timerStartedAt) {
-      timerStartedAt = Date.now();
-    }
+    const duration = 300;
 
     window._timer = setInterval(() => {
       const elapsed = Math.floor((Date.now() - timerStartedAt) / 1000);
@@ -188,7 +189,7 @@
     const active = draft.find(r => r['Active?'] === 'TRUE');
     if (!active) return;
 
-    activePickNum = Number(active['Pick number']) || 0;
+    const pickNumber = Number(active['Pick number']) || 0;
     const activeName = active?.Name || '';
     const round = active?.Round || '';
 
@@ -199,15 +200,21 @@
     document.getElementById('nameLine').textContent = activeName;
     document.getElementById('roundLine').textContent = round;
 
+    activePickNum = pickNumber;
+
     if (active['Pick Locked?'] === 'TRUE') {
       clearInterval(window._timer);
       document.getElementById('timerLine').textContent = `Pick ${activePickNum} – Låst`;
     } else {
-      timerStartedAt = Date.now();
-      startTimer();
+      // Starta timer endast om nytt pick är aktivt
+      if (pickNumber !== lastPickNumber) {
+        lastPickNumber = pickNumber;
+        timerStartedAt = Date.now();
+        startTimer();
+      }
     }
 
-    buildTicker(activePickNum, activeName);
+    buildTicker(pickNumber, activeName);
   }
 
   function buildTicker(activePickNumber, activeTeamName) {
@@ -238,12 +245,10 @@
     looped.forEach(item => {
       const div = document.createElement('div');
       div.className = 'ticker-item' + (item.isActive ? ' active' : '');
-      div.innerHTML = item.label;  // Viktigt: använd innerHTML för att span ska fungera
+      div.innerHTML = item.label;
       tick.appendChild(div);
     });
   }
-
-
 
   function init() {
     fetchCSV('Draft', d => {
@@ -256,7 +261,7 @@
   }
 
   init();
-  setInterval(init, 15000); // uppdatering från Google Sheets var 60:e sekund
+  setInterval(init, 15000); // Hämtar ny data var 15:e sekund
 </script>
 
 </body>
