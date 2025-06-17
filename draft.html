@@ -110,7 +110,7 @@
       animation: scrollLeft 60s linear infinite;
     }
 
-    .ticker-item {
+    .ticker-item {  
       color: white;
       font-size: 18px;
       padding: 6px 12px;
@@ -121,6 +121,12 @@
 
     .ticker-item.active {
       background: #ff7a52;
+      border-radius: 4px;
+    }
+
+    .locked {
+      background-color: rgb(255, 0, 0);
+      padding: 4px 8px;
       border-radius: 4px;
     }
 
@@ -152,11 +158,7 @@
 <script>
   const SHEET_ID = '1niFCUtwdUAuy5yb65oXfPv50w-UPoqMYj_QRhsV-jeA';
   const CSV = sheet => `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheet)}`;
-
-  let draft = [], imgTab = [];
-  let activePickNum = 0;
-  let timerStartedAt = null;
-  let lastPickNumber = null;
+  let draft = [], imgTab = [], activePickNum = 0, timerStartedAt = null, lastPickNumber = null;
 
   function fetchCSV(sheet, cb) {
     Papa.parse(CSV(sheet), {
@@ -170,17 +172,21 @@
   function startTimer() {
     const el = document.getElementById('timerLine');
     clearInterval(window._timer);
-    const duration = 300;
+    let duration = 300;
+
+    if (!timerStartedAt) {
+      timerStartedAt = Date.now();
+    }
 
     window._timer = setInterval(() => {
       const elapsed = Math.floor((Date.now() - timerStartedAt) / 1000);
       const rem = duration - elapsed;
       if (rem <= 0) {
         el.textContent = `Pick ${activePickNum} – Låst`;
+        el.classList.add('locked');
         clearInterval(window._timer);
       } else {
-        const m = Math.floor(rem / 60), s = String(rem % 60).padStart(2, '0');
-        el.textContent = `Pick ${activePickNum} – ${m}:${s}`;
+        el.textContent = `Pick ${activePickNum} – ${Math.floor(rem / 60)}:${String(rem % 60).padStart(2, '0')}`;
       }
     }, 1000);
   }
@@ -190,6 +196,7 @@
     if (!active) return;
 
     const pickNumber = Number(active['Pick number']) || 0;
+    activePickNum = pickNumber;
     const activeName = active?.Name || '';
     const round = active?.Round || '';
 
@@ -200,13 +207,14 @@
     document.getElementById('nameLine').textContent = activeName;
     document.getElementById('roundLine').textContent = round;
 
-    activePickNum = pickNumber;
+    const timerEl = document.getElementById('timerLine');
 
     if (active['Pick Locked?'] === 'TRUE') {
       clearInterval(window._timer);
-      document.getElementById('timerLine').textContent = `Pick ${activePickNum} – Låst`;
+      timerEl.textContent = `Pick ${activePickNum} – Låst`;
+      timerEl.classList.add('locked');
     } else {
-      // Starta timer endast om nytt pick är aktivt
+      timerEl.classList.remove('locked');
       if (pickNumber !== lastPickNumber) {
         lastPickNumber = pickNumber;
         timerStartedAt = Date.now();
@@ -214,7 +222,7 @@
       }
     }
 
-    buildTicker(pickNumber, activeName);
+    buildTicker(activePickNum, activeName);
   }
 
   function buildTicker(activePickNumber, activeTeamName) {
@@ -261,7 +269,7 @@
   }
 
   init();
-  setInterval(init, 15000); // Hämtar ny data var 15:e sekund
+  setInterval(init, 15000);
 </script>
 
 </body>
