@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Spotlight</title>
+  <link rel="stylesheet" href="https://use.typekit.net/wdy7keh.css">
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+    }
+    .card {
+      position: absolute;
+      top: 150px;
+      left: 40px;
+      width: 380px;
+      height: 370px;
+      background: rgba(47, 47, 47, 0.75);
+      border: 5px solid #ff7a52;
+      border-radius: 10px;
+      box-sizing: border-box;
+      padding: 20px;
+      color: white;
+      text-align: center;
+      line-height: 1.4;
+    }
+    .nickname {
+      font-family: "zuume-edge", sans-serif;
+      font-weight: 700;
+      font-size: 50px;
+      margin-bottom: 6px;
+    }
+    .fullname, .age {
+      font-family: "bc-sklonar", sans-serif;
+      font-weight: 700;
+      font-size: 24px;
+      margin-bottom: 6px;
+    }
+    .role {
+      font-family: "bc-sklonar", sans-serif;
+      font-weight: 700;
+      font-size: 16px;
+      margin-bottom: 8px;
+    }
+    .rank img {
+      height: 70px;
+      vertical-align: middle;
+    }
+    .stream {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+      font-family: "zuume-edge", sans-serif;
+      font-weight: 500;
+      font-size: 24px;
+      color: white;
+    }
+    .stream img {
+      width: 24px;
+      height: 24px;
+    }
+    .loading {
+      font-size: 18px;
+      text-align: center;
+      margin-top: 150px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="card" id="spotlightCard">
+  <div class="loading">Laddar...</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script>
+  const SHEET_ID = '1niFCUtwdUAuy5yb65oXfPv50w-UPoqMYj_QRhsV-jeA';
+  const CSV = sheet => `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheet)}`;
+  let firstLoad = true;
+
+  function fetchCSV(sheet) {
+    return new Promise(resolve => {
+      Papa.parse(CSV(sheet), {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        complete: results => resolve(results.data)
+      });
+    });
+  }
+
+  function fetchCSVRaw(sheet) {
+    return new Promise(resolve => {
+      Papa.parse(CSV(sheet), {
+        download: true,
+        header: false,
+        skipEmptyLines: true,
+        complete: results => resolve(results.data)
+      });
+    });
+  }
+
+  async function fetchCell(sheet, rowIndex, colIndex) {
+    const data = await fetchCSVRaw(sheet);
+    if (data[rowIndex] && data[rowIndex][colIndex] !== undefined) {
+      return data[rowIndex][colIndex].trim();
+    }
+    return null;
+  }
+
+  function calcAge(dob) {
+    const [y, m, d] = dob?.split('-').map(Number);
+    if (!y) return '';
+    const now = new Date(), b = new Date(y, m - 1, d);
+    let age = now.getFullYear() - b.getFullYear();
+    if (now < new Date(b.getFullYear() + age, m - 1, d)) age--;
+    return age + " år";
+  }
+
+  async function init() {
+    const spotlight = document.getElementById('spotlightCard');
+
+    // Visa laddar-text ENDAST första gången
+    if (firstLoad) {
+      spotlight.innerHTML = '<div class="loading">Laddar...</div>';
+    }
+
+    try {
+      const nick = await fetchCell('Grafik', 2, 1);
+      if (!nick) {
+        spotlight.innerHTML = 'Nick saknas i cell B3 i Grafik';
+        firstLoad = false;
+        return;
+      }
+
+      const spelarkort = await fetchCSV('Spelarkort');
+      const rec = spelarkort.find(r =>
+        r['NICK SOM DU SPELAR UNDER']?.trim().toLowerCase() === nick.trim().toLowerCase()
+      );
+
+      if (!rec) {
+        spotlight.innerHTML = `Spelare "${nick}" hittades inte i Spelarkort`;
+        firstLoad = false;
+        return;
+      }
+
+      const fullname = rec['Fullständigt namn'] || '';
+      const age = calcAge(rec['Ålder'] || '');
+      const role = rec['Roll/Roller'] || '';
+      const rank = rec['Rank'] || '';
+      const streaming = rec['Streamar du']?.trim().toLowerCase() === 'ja';
+      const link = rec['Stream Link'] || '';
+
+      const icons = {
+        twitch: 'https://static.twitchcdn.net/assets/favicon-32-e29e246c157142c94346.png',
+        youtube: 'https://cdn3.iconfinder.com/data/icons/social-network-30/512/social-06-512.png',
+        kick: 'https://raw.githubusercontent.com/kREATIVOFC/Draft-Lower-Third/main/Assets/Kick-K-Green.png',
+        x: 'https://upload.wikimedia.org/wikipedia/commons/5/57/X_logo_2023_%28white%29.png'
+      };
+
+      let streamHtml = '';
+      if (streaming && link) {
+        let platform = '';
+        const l = link.toLowerCase();
+        if (l.includes('twitch.tv')) platform = 'twitch';
+        else if (l.includes('kick.com')) platform = 'kick';
+        else if (l.includes('youtube.com') || l.includes('youtu.be')) platform = 'youtube';
+        else if (l.includes('x.com') || l.includes('twitter.com')) platform = 'x';
+
+        const username = link.split('/').pop() || '';
+
+        if (platform && icons[platform]) {
+          streamHtml = `
+            <div class="stream">
+              <img src="${icons[platform]}" alt="${platform}">
+              <span>${username}</span>
+            </div>`;
+        }
+      }
+
+      spotlight.innerHTML = `
+        <div class="nickname">${rec['NICK SOM DU SPELAR UNDER']}</div>
+        <div class="fullname">${fullname}</div>
+        <div class="age">${age}</div>
+        <div class="role">${role}</div>
+        <div class="rank"><img src="https://raw.githubusercontent.com/kREATIVOFC/Draft-Lower-Third/main/Assets/${rank}.png" alt="${rank}"></div>
+        ${streamHtml}
+      `;
+
+      firstLoad = false;
+
+    } catch (e) {
+      console.error(e);
+      spotlight.innerHTML = 'Kunde inte ladda data';
+      firstLoad = false;
+    }
+  }
+
+  init();
+  setInterval(init, 60000);
+</script>
+
+</body>
+</html>
