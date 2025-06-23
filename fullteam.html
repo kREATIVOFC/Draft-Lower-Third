@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8" />
+  <title>Full Team Vy</title>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <link rel="stylesheet" href="https://use.typekit.net/wdy7keh.css">
+  <style>
+    body {
+      margin: 0;
+      background: #000;
+      color: white;
+      font-family: sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    .team-box {
+      width: 1200px;
+      height: 600px;
+      background: #401f14c5;
+      border: 2px solid #ff7a52;
+      border-radius: 10px;
+      padding: 20px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow: hidden;
+    }
+    .title {
+      text-align: center;
+      font-size: 28px;
+      font-weight: bold;
+      color: #ffffff;
+      margin-bottom: 10px;
+      font-family: "bc-sklonar", sans-serif;
+      font-weight: 700;
+    }
+    .player-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: #803d29;
+      padding: 8px 12px;
+      border-radius: 8px;
+      height: 80px;
+    }
+    .player-info img {
+      height: 60px;
+      width: auto;           /* Viktigt för att behålla proportion */
+      justify-self: center;  /* Centrerar i grid-cellen horisontellt */
+      align-self: center;    /* Centrerar i grid-cellen vertikalt */
+      display: block;        /* För att justify-self ska funka korrekt */
+    }
+
+    .player-info {
+      display: grid;
+      grid-template-columns: 120px 160px 160px 80px 80px 80px 80px 1fr;
+      gap: 8px;
+      align-items: center;
+      font-size: 16px;
+    }
+
+    .nickname {
+      text-transform: uppercase;
+      font-family: "bc-sklonar", sans-serif;
+      font-weight: 700;
+      font-size: 18px;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+  <div class="team-box" id="teamBox">
+    <div class="title">Laddar...</div>
+  </div>
+
+  <script>
+    const SHEET_ID = '1niFCUtwdUAuy5yb65oXfPv50w-UPoqMYj_QRhsV-jeA';
+    const GITHUB_RANK_URL = 'https://raw.githubusercontent.com/kREATIVOFC/Draft-Lower-Third/main/Assets/';
+
+    const csvUrl = (sheet) =>
+      `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheet)}`;
+
+    function fetchCSV(sheet, header = true) {
+      return new Promise((resolve) => {
+        Papa.parse(csvUrl(sheet), {
+          download: true,
+          header: header,
+          skipEmptyLines: true,
+          complete: (results) => resolve(results.data),
+        });
+      });
+    }
+
+    function calculateAge(birthdate) {
+      const [y, m, d] = (birthdate || '').split('-').map(Number);
+      if (!y) return '';
+      const today = new Date();
+      const birth = new Date(y, m - 1, d);
+      let age = today.getFullYear() - birth.getFullYear();
+      if (
+        today.getMonth() < birth.getMonth() ||
+        (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate())
+      ) {
+        age--;
+      }
+      return `${age} år`;
+    }
+
+    async function render() {
+      const teamBox = document.getElementById('teamBox');
+      const grafik = await fetchCSV('Grafik', false);
+      const spelarkort = await fetchCSV('Spelarkort', true);
+      const stats = await fetchCSV('Stats', true);
+
+      console.log('Grafik data:', grafik);
+
+      const row = grafik[2]; // rad 5 i Sheets, index 2 i CSV efter flytt
+      if (!row) {
+        console.error('❌ Kunde inte läsa rad 5 i grafik!');
+        return;
+      }
+
+      console.log('Rad 5 data:', row);
+      const title = row[0];
+      const names = row.slice(1, 6).map(n => n.trim()).filter(n => n); // Kapten + 4
+
+      console.log('Spelarnamn:', names);
+
+      document.querySelector('.title').textContent = title || 'Utan titel';
+
+      for (let i = 0; i < names.length; i++) {
+        const nick = names[i];
+        console.log(`Spelare ${i + 1}: ${nick}`);
+
+        const spelare = spelarkort.find(
+          (s) => (s['NICK SOM DU SPELAR UNDER'] || '').toLowerCase() === nick.toLowerCase()
+        );
+        const stat = stats.find(
+          (s) => (s['Player'] || '').toLowerCase() === nick.toLowerCase()
+        );
+
+        if (!spelare) {
+          console.warn(`⚠️ Kunde inte hitta spelare "${nick}" i Spelarkort`);
+        }
+        if (!stat) {
+          console.warn(`⚠️ Kunde inte hitta stat för "${nick}" i Stats`);
+        }
+
+        const fullname = spelare?.['Fullständigt namn'] || 'Okänd';
+        const age = calculateAge(spelare?.['Ålder'] || '');
+        const rank = spelare?.['Rank'] || '';
+        const role = spelare?.['Roll/Roller'] || '';
+        const kd = stat?.['K/D'] || '?';
+        const win = stat?.['Win%'] || '?';
+        const hs = stat?.['Headshot %'] || '?';
+
+        const rowDiv = document.createElement('div');
+        rowDiv.classList.add('player-row');
+
+        const img = document.createElement('img');
+        img.src = GITHUB_RANK_URL + encodeURIComponent(rank) + '.png';
+        img.alt = 'Rank';
+
+        const info = document.createElement('div');
+        info.classList.add('player-info');
+
+        info.innerHTML = `
+          <span class="nickname">${nick}</span>
+          <span>${fullname}</span>
+          <span>${age}</span>
+          <span>K/D: ${kd}</span>
+          <span>Win%: ${win}</span>
+          <span>HS%: ${hs}</span>
+          <span>${role}</span>
+        `;
+
+        info.prepend(img);
+        rowDiv.appendChild(info);
+        teamBox.appendChild(rowDiv);  // Viktigt: lägga till raden i teamBox!
+      }
+    }
+
+    render();
+  </script>
+</body>
+</html>
