@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8" />
+  <title>Schema</title>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <style>
+    body { margin:0; background:#000; color:white; font-family:sans-serif;
+      display:flex; justify-content:center; align-items:center; height:100vh; }
+    .container { width:1200px; display:flex; flex-direction:column; align-items:center; gap:40px; }
+    .match-wrapper { display:flex; flex-direction:column; align-items:center; gap:12px; }
+    .match-info {
+      background:#803d29; border-radius:10px; padding:6px 12px;
+      font-size:16px; font-weight:bold; color:#fff; border:2px solid #ff7a52;
+    }
+    .match-box {
+      background:rgba(64,31,20,0.75); border:2px solid #ff7a52;
+      border-radius:16px; display:flex; align-items:center;
+      padding:16px 24px; gap:24px; min-width:800px;
+    }
+    .team { display:flex; align-items:center; flex:1; gap:16px; }
+    .team img { width:60px; height:60px; object-fit:cover;
+      border-radius:50%; border:2px solid #ff7a52; }
+    .team-name { font-size:20px; font-weight:bold; color:#fff; text-transform:uppercase; }
+    .vs { font-size:22px; font-weight:bold; color:#fff;
+      background:#803d29; padding:8px 16px; border-radius:8px;
+      min-width:80px; text-align:center; }
+  </style>
+</head>
+<body>
+  <div class="container" id="container">Laddar schema...</div>
+
+  <script>
+    const SHEET_ID = '1niFCUtwdUAuy5yb65oXfPv50w-UPoqMYj_QRhsV-jeA';
+    const getCSV = sheet =>
+      `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheet)}`;
+    async function fetchCSV(sheet, header = true) {
+      return new Promise(resolve => {
+        Papa.parse(getCSV(sheet), {
+          download: true,
+          header,
+          skipEmptyLines: true,
+          complete: results => {
+            console.log(`✅ CSV laddat: ${sheet}`, results.data);
+            resolve(results.data);
+          },
+        });
+      });
+    }
+
+    async function render() {
+      const container = document.getElementById('container');
+      container.innerHTML = ''; // --------------------------------------------- Ta bort laddar-text
+      console.log('▶️ Börjar render...');
+
+      const schema = await fetchCSV('Schema', true);
+      const images = await fetchCSV('BildTabell', true);
+
+      const filtered = schema.filter(r => r.Schema?.toString().toLowerCase() === 'true');
+      console.log('📌 Matcher markerade:', filtered.length, filtered);
+
+      if (!filtered.length) {
+        container.innerHTML = '⚠️ Inga matcher markerade för schema.';
+        return;
+      }
+
+      filtered.slice(0,4).forEach(m => {
+        container.appendChild(createWrapper(m, images));
+      });
+      console.log('✔️ Klart att visa schema.');
+    }
+
+    function createWrapper(m, images) {
+      const w = document.createElement('div');
+      w.className = 'match-wrapper';
+
+      const info = document.createElement('div');
+      info.className = 'match-info';
+      info.textContent = `${m.Datum||''} • ${m.Tid||''} • ${m.Karta||''}`;
+
+      const box = document.createElement('div');
+      box.className = 'match-box';
+
+      const homeImg = (images.find(b=>b.Namn?.toLowerCase()===m.Hemmalag?.toLowerCase())?.Bildlänk || '').trim();
+      const awayImg = (images.find(b=>b.Namn?.toLowerCase()===m.Bortalag?.toLowerCase())?.Bildlänk || '').trim();
+
+      const finalScore = (m.HemmaResultat && m.BortaResultat)
+        ? `${m.HemmaResultat} - ${m.BortaResultat}` : 'VS';
+
+      box.innerHTML = `
+        <div class="team" style="justify-content:flex-end">
+          <div class="team-name">${m.Hemmalag || ''}</div>
+          ${homeImg ? `<img src="${homeImg}" alt="${m.Hemmalag}">` : ''}
+        </div>
+        <div class="vs">${finalScore}</div>
+        <div class="team">
+          ${awayImg ? `<img src="${awayImg}" alt="${m.Bortalag}">` : ''}
+          <div class="team-name">${m.Bortalag || ''}</div>
+        </div>`;
+      w.append(info, box);
+      return w;
+    }
+
+    render();
+  </script>
+</body>
+</html>
